@@ -9,6 +9,7 @@ if SERVER then
 
     LegendaryBadges = LegendaryBadges or {}
     LegendaryBadges.List = LegendaryBadges.List or {}
+    LegendaryBadges.PlayerData = LegendaryBadges.PlayerData or {}
 
     local DATA_DIR  = "legendary_badges"
     local DATA_FILE = DATA_DIR .. "/badges.json"
@@ -22,16 +23,15 @@ if SERVER then
         end
 
         local toSave = {}
-
         for id, data in pairs(LegendaryBadges.List or {}) do
             toSave[id] = {
-                id    = data.id,
-                name  = data.name,
-                icon  = data.icon,
-                r     = data.color and data.color.r or 255,
-                g     = data.color and data.color.g or 255,
-                b     = data.color and data.color.b or 255,
-                a     = data.color and data.color.a or 255
+                id   = data.id,
+                name = data.name,
+                icon = data.icon,
+                r    = data.color and data.color.r or 255,
+                g    = data.color and data.color.g or 255,
+                b    = data.color and data.color.b or 255,
+                a    = data.color and data.color.a or 255
             }
         end
 
@@ -110,9 +110,9 @@ if SERVER then
 
     ComputeNextID()
 
---------------------------------------------------------------------
--- CONFIG RÔLES (via LegendaryBadgesConfig)
---------------------------------------------------------------------
+    --------------------------------------------------------------------
+    -- CONFIG RÔLES (via LegendaryBadgesConfig)
+    --------------------------------------------------------------------
     local function GetRoleBadgeForPlayer(ply)
         print("[Badges][SV] GetRoleBadgeForPlayer", ply:Nick(), ply:GetUserGroup(),
             "cfg=", (LegendaryBadgesConfig and "OK" or "NIL"))
@@ -127,6 +127,7 @@ if SERVER then
         if id and LegendaryBadges.List[id] then
             return id
         end
+
         return nil
     end
 
@@ -154,19 +155,28 @@ if SERVER then
         end
     end
 
-
     --------------------------------------------------------------------
-    -- GESTION DONNÉES JOUEUR
+    -- GESTION DONNÉES JOUEUR (par SteamID)
     --------------------------------------------------------------------
     local function InitPlayerData(ply)
         if not IsValid(ply) then return end
-        ply.LegendaryBadges = ply.LegendaryBadges or {}
+
+        local sid = ply:SteamID()
+        LegendaryBadges.PlayerData[sid] = LegendaryBadges.PlayerData[sid] or {}
+
+        ply.LegendaryBadges = LegendaryBadges.PlayerData[sid]
 
         if not ply.LegendaryBadges.owned then
             ply.LegendaryBadges.owned = {}
-            for id, _ in pairs(LegendaryBadges.List) do
-                table.insert(ply.LegendaryBadges.owned, id)
+
+            local group = string.lower(ply:GetUserGroup() or "")
+            -- Superadmin : possède tous les badges
+            if group == "superadmin" then
+                for id, _ in pairs(LegendaryBadges.List) do
+                    table.insert(ply.LegendaryBadges.owned, id)
+                end
             end
+            -- Tous les autres : aucun badge par défaut
         end
 
         ply.LegendaryBadges.equipped = ply.LegendaryBadges.equipped or {
@@ -179,6 +189,7 @@ if SERVER then
     --------------------------------------------------------------------
     local function SendBadgeData(ply)
         if not IsValid(ply) then return end
+
         print("[Badges][SV] SendBadgeData ->", ply:Nick(), "count:", table.Count(LegendaryBadges.List or {}))
 
         net.Start("LegendaryBadges_SendDataV2")
@@ -221,6 +232,133 @@ if SERVER then
     end
 
     --------------------------------------------------------------------
+    -- GESTION DES BADGES PAR STEAMID (shop / commandes)
+    --------------------------------------------------------------------
+    local function LegendaryBadges_AddBadgeToSteamID(steamid, badgeID)
+        if not LegendaryBadges.List[badgeID] then
+            print("[Badges] legendary_addbadge: badgeID inexistant:", badgeID)
+            return
+        end
+
+        LegendaryBadges.PlayerData[steamid] = LegendaryBadges.PlayerData[steamid] or {
+            owned    = {},
+            equipped = { nil, nil, nil }
+        }
+
+        local data = LegendaryBadges.PlayerData[steamid]
+        data.owned = data.owned or {}
+
+        for _, id in ipairs(data.owned) do
+            if id == badgeID then
+                print("[Badges] legendary_addbadge: le joueur", steamid, "possède déjà le badge", badgeID)
+                return -- déjà possédé
+            end
+        end
+        table.insert(data.owned, badgeID)
+
+        print("[Badges] Badge", badgeID, "ajouté au joueur", steamid)
+
+        -- Si le joueur est connecté, resync immédiat
+        for _, ply in ipairs(player.GetAll()) do
+            if IsValid(ply) and ply:SteamID() == steamid then
+                InitPlayerData(ply)
+                SendBadgeData(ply)
+                print("[Badges] Synchronisation envoyée à", ply:Nick(), "pour l'ajout du badge", badgeID)
+                break
+            end
+        end
+    end
+
+    local function LegendaryBadges_RemoveBadgeFromSteamID(steamid, badgeID)
+        local data = LegendaryBadges.PlayerData[steamid]
+        if not data or not data.owned then
+            print("[Badges] legendary_delbadge: aucun data pour", steamid, "ou pas de owned")
+            return
+        end
+
+        local hadBadge = false
+
+        -- Retirer de la liste owned
+        for k, id in ipairs(data.owned) do
+            if id == badgeID then
+                table.remove(data.owned, k)
+                hadBadge = true
+                break
+            end
+        end
+
+        if not hadBadge then
+            print("[Badges] legendary_delbadge: le joueur", steamid, "ne possède pas le badge", badgeID)
+        else
+            print("[Badges] Badge", badgeID, "retiré du joueur", steamid)
+        end
+
+        -- Retirer des slots équipés
+        data.equipped = data.equipped or { nil, nil, nil }
+        local unequipped = false
+        for i = 1, 3 do
+            if data.equipped[i] == badgeID then
+                data.equipped[i] = nil
+                unequipped = true
+            end
+        end
+
+        if unequipped then
+            print("[Badges] Badge", badgeID, "déséquipé des slots du joueur", steamid)
+        end
+
+        -- Si le joueur est connecté, resync immédiat
+        for _, ply in ipairs(player.GetAll()) do
+            if IsValid(ply) and ply:SteamID() == steamid then
+                InitPlayerData(ply)
+                SendBadgeData(ply)
+                print("[Badges] Synchronisation envoyée à", ply:Nick(), "pour la suppression du badge", badgeID)
+                break
+            end
+        end
+    end
+
+    --------------------------------------------------------------------
+    -- COMMANDES CONSOLE / SHOP
+    --------------------------------------------------------------------
+    -- Ajoute l'accès à un badge : legendary_addbadge <steamid> <badgeID>
+    concommand.Add("legendary_addbadge", function(ply, cmd, args)
+        -- Si appelé par un joueur, limiter aux superadmins
+        if IsValid(ply) and not ply:IsSuperAdmin() then return end
+
+        local steamid = args[1]
+        local badgeID = args[2]
+        if not steamid or not badgeID then
+            print("Usage: legendary_addbadge <steamid> <badgeID>")
+            return
+        end
+
+        print("[Badges] Commande legendary_addbadge par",
+            IsValid(ply) and (ply:Nick() .. " (" .. ply:SteamID() .. ")") or "console",
+            "-> steamid:", steamid, "badgeID:", badgeID)
+
+        LegendaryBadges_AddBadgeToSteamID(steamid, badgeID)
+    end)
+
+    -- Retire l'accès à un badge : legendary_delbadge <steamid> <badgeID>
+    concommand.Add("legendary_delbadge", function(ply, cmd, args)
+        if IsValid(ply) and not ply:IsSuperAdmin() then return end
+
+        local steamid = args[1]
+        local badgeID = args[2]
+        if not steamid or not badgeID then
+            print("Usage: legendary_delbadge <steamid> <badgeID>")
+            return
+        end
+
+        print("[Badges] Commande legendary_delbadge par",
+            IsValid(ply) and (ply:Nick() .. " (" .. ply:SteamID() .. ")") or "console",
+            "-> steamid:", steamid, "badgeID:", badgeID)
+
+        LegendaryBadges_RemoveBadgeFromSteamID(steamid, badgeID)
+    end)
+
+    --------------------------------------------------------------------
     -- HOOKS
     --------------------------------------------------------------------
     hook.Add("PlayerInitialSpawn", "LegendaryBadges_InitData", function(ply)
@@ -230,7 +368,7 @@ if SERVER then
             if not IsValid(ply) then return end
             print("[Badges][SV] Timer 2s, envoi badges à", ply:Nick())
             SendBadgeData(ply)
-            BroadcastRoleBadges() -- <=== envoi des badges de rôle à tout le monde
+            BroadcastRoleBadges()
         end)
     end)
 
@@ -288,9 +426,11 @@ if SERVER then
             color = color
         }
 
+        print("[Badges] Badge admin créé par", ply:Nick(), "ID:", id, "Nom:", name)
+
         SaveBadgesToFile()
         BroadcastBadgeList()
-        BroadcastRoleBadges() -- au cas où ce nouveau badge est utilisé comme badge de rôle
+        BroadcastRoleBadges()
 
         net.Start("LegendaryBadges_AdminCreateResult")
             net.WriteBool(true)
@@ -303,6 +443,8 @@ if SERVER then
 
         local id = net.ReadString()
         if id == "" or not LegendaryBadges.List[id] then return end
+
+        print("[Badges] Suppression du badge ID", id, "par", ply:Nick())
 
         for _, pl in ipairs(player.GetAll()) do
             if not IsValid(pl) then continue end
@@ -328,7 +470,7 @@ if SERVER then
         LegendaryBadges.List[id] = nil
         SaveBadgesToFile()
         BroadcastBadgeList()
-        BroadcastRoleBadges() -- mise à jour des rôles si le badge de rôle a été supprimé
+        BroadcastRoleBadges()
     end)
 
 end
