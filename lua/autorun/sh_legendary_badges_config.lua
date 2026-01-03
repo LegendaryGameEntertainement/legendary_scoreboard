@@ -6,6 +6,12 @@ LegendaryBadgesConfig.EditorRanks = {
     admin      = true
 }
 
+-- Rangs qui possèdent automatiquement tous les badges
+LegendaryBadgesConfig.AllBadgesRanks = {
+    superadmin = true
+    -- admin = true, etc. si tu veux
+}
+
 -- Badge “rôle” forcé par rang (ID de badge existant dans LegendaryBadges.List)
 LegendaryBadgesConfig.RoleBadges = {
     superadmin = "3",

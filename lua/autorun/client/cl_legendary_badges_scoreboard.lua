@@ -42,10 +42,8 @@ net.Receive("LegendaryBadges_SendDataV2", function()
     end
 
     BadgeData.equipped = {}
-
     for i = 1, 3 do
         local has = net.ReadBool()
-
         if has then
             BadgeData.equipped[i] = net.ReadString()
         else
@@ -155,11 +153,14 @@ local function CreateScoreboard()
 
                     if id and BadgeData.list[id] then
                         local data = BadgeData.list[id]
+                        local col  = data.color or color_white
 
-                        surface.SetDrawColor(data.color or color_white)
-                        surface.DrawRect(x, 4, 24, 24)
+                        if col.a > 0 then
+                            surface.SetDrawColor(col.r, col.g, col.b, col.a)
+                            surface.DrawRect(x, 4, 24, 24)
+                        end
 
-                        surface.SetDrawColor(255, 255, 255)
+                        surface.SetDrawColor(255, 255, 255, 255)
                         if data.icon ~= "" then
                             local mat = Material(data.icon, "smooth")
                             surface.SetMaterial(mat)
@@ -169,7 +170,6 @@ local function CreateScoreboard()
                         if tooltip ~= "" then
                             tooltip = tooltip .. " / "
                         end
-
                         tooltip = tooltip .. (data.name or id)
                     end
 
@@ -183,11 +183,14 @@ local function CreateScoreboard()
                     x = x + 4 -- petit espace avant le badge de rôle
 
                     local data = BadgeData.list[roleID]
+                    local col  = data.color or color_white
 
-                    surface.SetDrawColor(data.color or color_white)
-                    surface.DrawRect(x, 4, 24, 24)
+                    if col.a > 0 then
+                        surface.SetDrawColor(col.r, col.g, col.b, col.a)
+                        surface.DrawRect(x, 4, 24, 24)
+                    end
 
-                    surface.SetDrawColor(255, 255, 255)
+                    surface.SetDrawColor(255, 255, 255, 255)
                     if data.icon ~= "" then
                         local mat = Material(data.icon, "smooth")
                         surface.SetMaterial(mat)
@@ -197,7 +200,6 @@ local function CreateScoreboard()
                     if tooltip ~= "" then
                         tooltip = tooltip .. " / "
                     end
-
                     tooltip = tooltip .. (data.name or roleID)
                 end
             end
@@ -257,6 +259,7 @@ hook.Add("CreateMove", "LegendaryBadges_BlockInputsWhenOpen", function(cmd)
     cmd:RemoveKey(IN_ATTACK)
     cmd:RemoveKey(IN_ATTACK2)
     cmd:RemoveKey(IN_RELOAD)
+
     cmd:ClearMovement()
     cmd:SetForwardMove(0)
     cmd:SetSideMove(0)
