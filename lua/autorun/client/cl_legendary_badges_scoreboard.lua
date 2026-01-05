@@ -90,10 +90,10 @@ net.Receive("LegendaryBadges_SendRoles", function()
 end)
 
 --------------------------------------------------------------------
--- RÉFRESH DES LIGNES DU SCOREBOARD
+-- CRÉATION LIGNES SCOREBOARD (une seule fois)
 --------------------------------------------------------------------
 
-local function RefreshScoreboardLines(scroll)
+local function BuildScoreboardLines(scroll)
     if not IsValid(scroll) then return end
 
     scroll:Clear()
@@ -102,7 +102,7 @@ local function RefreshScoreboardLines(scroll)
         if not IsValid(ply) then continue end
 
         --------------------------------------------------------
-        -- Ligne joueur = DButton (clic gauche -> debug / SteamID)
+        -- Ligne joueur = DButton + sous-menu admin
         --------------------------------------------------------
         local line = vgui.Create("DButton", scroll)
         line:Dock(TOP)
@@ -111,6 +111,7 @@ local function RefreshScoreboardLines(scroll)
         line:SetText("")
         line:SetMouseInputEnabled(true)
         line:SetKeyboardInputEnabled(false)
+        line.SubMenu = nil
 
         function line:Paint(w, h)
             surface.SetDrawColor(40, 40, 40, 220)
@@ -119,20 +120,131 @@ local function RefreshScoreboardLines(scroll)
             draw.SimpleText(ply:Ping() .. " ms", "DermaDefault", w - 10, h / 2, Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
         end
 
-        function line:DoClick()
-            local sid = ply:SteamID() or ""
-            if sid == "" then return end
+        -- sous-menu docké en dessous, la ligne reste visible
+        local function BuildSubMenu(parent)
+            local sub = vgui.Create("DPanel", parent)
+            sub:Dock(BOTTOM)
+            sub:SetTall(34)
+            sub:DockMargin(40, 2, 40, 4)
 
-            SetClipboardText(sid)
-            chat.AddText(
-                Color(0, 200, 0), "[Scoreboard] ",
-                color_white, "SteamID de ",
-                Color(200, 200, 255), ply:Nick(),
-                color_white, " copié : ",
-                Color(200, 255, 200), sid
-            )
+            function sub:Paint(w, h)
+                surface.SetDrawColor(15, 15, 15, 230)
+                surface.DrawRect(0, 0, w, h)
+            end
+
+            local function AddBtn(txt, iconMat, onClick)
+                local b = vgui.Create("DButton", sub)
+                b:Dock(LEFT)
+                b:DockMargin(4, 4, 4, 4)
+                b:SetWide(110)
+                b:SetText("")
+                b.OnMousePressed = nil
+
+                b.DoClick = function()
+                    if onClick then onClick() end
+                end
+
+                function b:Paint(w, h)
+                    surface.SetDrawColor(30, 30, 30, 255)
+                    surface.DrawRect(0, 0, w, h)
+
+                    surface.SetDrawColor(255, 255, 255, 255)
+                    if iconMat then
+                        surface.SetMaterial(iconMat)
+                        surface.DrawTexturedRect(6, 6, 16, 16)
+                    end
+
+                    draw.SimpleText(txt, "DermaDefault", 26, h / 2, Color(230, 230, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                end
+
+                return b
+            end
+
+            local matSteam   = Material("icon16/world.png")
+            local matID      = Material("icon16/key.png")
+            local matFreeze  = Material("icon16/lock.png")
+            local matGoto    = Material("icon16/arrow_right.png")
+            local matBring   = Material("icon16/arrow_left.png")
+            local matBack    = Material("icon16/arrow_undo.png")
+            local matSpec    = Material("icon16/eye.png")
+
+            AddBtn("profil steam", matSteam, function()
+                local sid64 = ply:SteamID64()
+                if sid64 then
+                    gui.OpenURL("https://steamcommunity.com/profiles/" .. sid64)
+                end
+            end)
+
+            AddBtn("steamid", matID, function()
+                local sid = ply:SteamID() or ""
+                if sid ~= "" then
+                    SetClipboardText(sid)
+                    chat.AddText(
+                        Color(0, 200, 0), "[Scoreboard] ",
+                        color_white, "SteamID de ",
+                        Color(200, 200, 255), ply:Nick(),
+                        color_white, " copié : ",
+                        Color(200, 255, 200), sid
+                    )
+                end
+            end)
+
+            AddBtn("geler", matFreeze, function()
+                net.Start("LegendaryBadges_AdminAction")
+                    net.WriteString("freeze")
+                    net.WriteEntity(ply)
+                net.SendToServer()
+            end)
+
+            AddBtn("amener à soi", matBring, function()
+                net.Start("LegendaryBadges_AdminAction")
+                    net.WriteString("bring")
+                    net.WriteEntity(ply)
+                net.SendToServer()
+            end)
+
+            AddBtn("renvoyer", matBack, function()
+                net.Start("LegendaryBadges_AdminAction")
+                    net.WriteString("back")
+                    net.WriteEntity(ply)
+                net.SendToServer()
+            end)
+
+            AddBtn("observer", matSpec, function()
+                net.Start("LegendaryBadges_AdminAction")
+                    net.WriteString("spectate")
+                    net.WriteEntity(ply)
+                net.SendToServer()
+            end)
+
+            AddBtn("goto", matGoto, function()
+                net.Start("LegendaryBadges_AdminAction")
+                    net.WriteString("goto")
+                    net.WriteEntity(ply)
+                net.SendToServer()
+            end)
+
+            return sub
         end
 
+        function line:DoClick()
+            -- toggle : si déjà ouvert -> fermer
+            if IsValid(self.SubMenu) then
+                self.SubMenu:Remove()
+                self.SubMenu = nil
+                return
+            end
+
+            -- fermer les autres sous-menus
+            for _, other in ipairs(scroll:GetChildren()) do
+                if other ~= self and other.SubMenu and IsValid(other.SubMenu) then
+                    other.SubMenu:Remove()
+                    other.SubMenu = nil
+                end
+            end
+
+            self.SubMenu = BuildSubMenu(self)
+        end
 
         --------------------------------------------------------
         -- Panneau des badges (3 slots + rôle)
@@ -165,7 +277,6 @@ local function RefreshScoreboardLines(scroll)
 
             local x = 0
 
-            -- 3 slots configurables
             for i = 1, 3 do
                 local id = eq[i]
 
@@ -194,7 +305,6 @@ local function RefreshScoreboardLines(scroll)
                 x = x + 28
             end
 
-            -- 4e slot : badge de rôle
             local roleID = roleBadges[ply:SteamID64() or "0"]
 
             if roleID and BadgeData.list[roleID] then
@@ -241,14 +351,7 @@ local function CreateScoreboard()
     local scroll = vgui.Create("DScrollPanel", Scoreboard)
     scroll:Dock(FILL)
 
-    -- premier remplissage
-    RefreshScoreboardLines(scroll)
-
-    -- mise à jour toutes les 0.5 s quand le scoreboard est visible
-    timer.Create("LegendaryBadges_ScoreboardRefresh", 0.5, 0, function()
-        if not IsValid(Scoreboard) or not Scoreboard:IsVisible() then return end
-        RefreshScoreboardLines(scroll)
-    end)
+    BuildScoreboardLines(scroll)
 end
 
 --------------------------------------------------------------------
@@ -331,7 +434,7 @@ concommand.Add("legendary_scoreboard_test", function()
         end
     end)
 
-    LegendaryScoreboardOpen = true -- important pour bloquer les tirs
+    LegendaryScoreboardOpen = true
 end)
 
 end
