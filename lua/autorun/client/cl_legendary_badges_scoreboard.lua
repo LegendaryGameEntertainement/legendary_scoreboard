@@ -13,6 +13,14 @@ BadgeData = BadgeData or {
 local roleBadges = roleBadges or {}
 
 --------------------------------------------------------------------
+-- (Optionnel) désactiver d’autres scoreboards connus
+--------------------------------------------------------------------
+hook.Remove("ScoreboardShow", "DarkRP_ScoreboardShow")
+hook.Remove("ScoreboardHide", "DarkRP_ScoreboardHide")
+hook.Remove("ScoreboardShow", "ULXScoreboardShow")
+hook.Remove("ScoreboardHide", "ULXScoreboardHide")
+
+--------------------------------------------------------------------
 -- RÉCEPTION DES DONNÉES BADGES (3 slots joueurs)
 --------------------------------------------------------------------
 
@@ -82,107 +90,87 @@ net.Receive("LegendaryBadges_SendRoles", function()
 end)
 
 --------------------------------------------------------------------
--- CRÉATION SCOREBOARD
+-- RÉFRESH DES LIGNES DU SCOREBOARD
 --------------------------------------------------------------------
 
-local function CreateScoreboard()
-    if IsValid(Scoreboard) then Scoreboard:Remove() end
+local function RefreshScoreboardLines(scroll)
+    if not IsValid(scroll) then return end
 
-    Scoreboard = vgui.Create("DFrame")
-    Scoreboard:SetSize(ScrW() * 0.6, ScrH() * 0.7)
-    Scoreboard:Center()
-    Scoreboard:SetTitle("Legendary Scoreboard")
-    Scoreboard:SetDraggable(false)
-    Scoreboard:ShowCloseButton(false)
+    scroll:Clear()
 
-    local scroll = vgui.Create("DScrollPanel", Scoreboard)
-    scroll:Dock(FILL)
+    for _, ply in ipairs(player.GetAll()) do
+        if not IsValid(ply) then continue end
 
-    hook.Add("Think", "LegendaryBadges_ScoreboardThink", function()
-        if not IsValid(Scoreboard) or not Scoreboard:IsVisible() then return end
+        --------------------------------------------------------
+        -- Ligne joueur = DButton (clic gauche -> debug / SteamID)
+        --------------------------------------------------------
+        local line = vgui.Create("DButton", scroll)
+        line:Dock(TOP)
+        line:DockMargin(0, 0, 0, 2)
+        line:SetTall(32)
+        line:SetText("")
+        line:SetMouseInputEnabled(true)
+        line:SetKeyboardInputEnabled(false)
 
-        scroll:Clear()
+        function line:Paint(w, h)
+            surface.SetDrawColor(40, 40, 40, 220)
+            surface.DrawRect(0, 0, w, h)
+            draw.SimpleText(ply:Nick(), "DermaDefault", 8, h / 2, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+            draw.SimpleText(ply:Ping() .. " ms", "DermaDefault", w - 10, h / 2, Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+        end
 
-        for _, ply in ipairs(player.GetAll()) do
-            if not IsValid(ply) then continue end
+        function line:DoClick()
+            local sid = ply:SteamID() or ""
+            if sid == "" then return end
 
-            local line = scroll:Add("DPanel")
-            line:Dock(TOP)
-            line:DockMargin(0, 0, 0, 2)
-            line:SetTall(32)
+            SetClipboardText(sid)
+            chat.AddText(
+                Color(0, 200, 0), "[Scoreboard] ",
+                color_white, "SteamID de ",
+                Color(200, 200, 255), ply:Nick(),
+                color_white, " copié : ",
+                Color(200, 255, 200), sid
+            )
+        end
 
-            function line:Paint(w, h)
-                surface.SetDrawColor(40, 40, 40, 220)
-                surface.DrawRect(0, 0, w, h)
-                draw.SimpleText(ply:Nick(), "DermaDefault", 8, h / 2, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-                draw.SimpleText(ply:Ping() .. " ms", "DermaDefault", w - 10, h / 2, Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+
+        --------------------------------------------------------
+        -- Panneau des badges (3 slots + rôle)
+        --------------------------------------------------------
+        local badgePanel = vgui.Create("DPanel", line)
+        badgePanel:SetSize(4 * 24 + 4 * 4 + 8, 32)
+        badgePanel:SetPos(200, 0)
+        badgePanel:SetMouseInputEnabled(true)
+
+        local tooltip = ""
+
+        function badgePanel:OnCursorEntered()
+            if tooltip ~= "" then
+                self:SetTooltip(tooltip)
+            end
+        end
+
+        function badgePanel:Paint(w, h)
+            surface.SetDrawColor(0, 0, 0, 0)
+            surface.DrawRect(0, 0, w, h)
+
+            tooltip = ""
+
+            local eq
+            if ply == LocalPlayer() then
+                eq = ply.LegendaryBadgesClientEquipped or {}
+            else
+                eq = {}
             end
 
-            -- Panneau des badges (3 slots joueur + 1 slot rôle)
-            local badgePanel = vgui.Create("DPanel", line)
-            badgePanel:SetSize(4 * 24 + 4 * 4 + 8, 32)
-            badgePanel:SetPos(200, 0)
-            badgePanel:SetMouseInputEnabled(true)
+            local x = 0
 
-            local tooltip = ""
+            -- 3 slots configurables
+            for i = 1, 3 do
+                local id = eq[i]
 
-            function badgePanel:OnCursorEntered()
-                if tooltip ~= "" then
-                    self:SetTooltip(tooltip)
-                end
-            end
-
-            function badgePanel:Paint(w, h)
-                surface.SetDrawColor(0, 0, 0, 0)
-                surface.DrawRect(0, 0, w, h)
-
-                tooltip = ""
-
-                local eq
-                if ply == LocalPlayer() then
-                    eq = ply.LegendaryBadgesClientEquipped or {}
-                else
-                    eq = {} -- plus tard : synchro complète des autres joueurs
-                end
-
-                local x = 0
-
-                -- 3 slots configurables
-                for i = 1, 3 do
-                    local id = eq[i]
-
-                    if id and BadgeData.list[id] then
-                        local data = BadgeData.list[id]
-                        local col  = data.color or color_white
-
-                        if col.a > 0 then
-                            surface.SetDrawColor(col.r, col.g, col.b, col.a)
-                            surface.DrawRect(x, 4, 24, 24)
-                        end
-
-                        surface.SetDrawColor(255, 255, 255, 255)
-                        if data.icon ~= "" then
-                            local mat = Material(data.icon, "smooth")
-                            surface.SetMaterial(mat)
-                            surface.DrawTexturedRect(x + 4, 8, 16, 16)
-                        end
-
-                        if tooltip ~= "" then
-                            tooltip = tooltip .. " / "
-                        end
-                        tooltip = tooltip .. (data.name or id)
-                    end
-
-                    x = x + 28
-                end
-
-                -- 4e slot : badge de rôle pour CE joueur
-                local roleID = roleBadges[ply:SteamID64() or "0"]
-
-                if roleID and BadgeData.list[roleID] then
-                    x = x + 4 -- petit espace avant le badge de rôle
-
-                    local data = BadgeData.list[roleID]
+                if id and BadgeData.list[id] then
+                    local data = BadgeData.list[id]
                     local col  = data.color or color_white
 
                     if col.a > 0 then
@@ -200,10 +188,66 @@ local function CreateScoreboard()
                     if tooltip ~= "" then
                         tooltip = tooltip .. " / "
                     end
-                    tooltip = tooltip .. (data.name or roleID)
+                    tooltip = tooltip .. (data.name or id)
                 end
+
+                x = x + 28
+            end
+
+            -- 4e slot : badge de rôle
+            local roleID = roleBadges[ply:SteamID64() or "0"]
+
+            if roleID and BadgeData.list[roleID] then
+                x = x + 4
+
+                local data = BadgeData.list[roleID]
+                local col  = data.color or color_white
+
+                if col.a > 0 then
+                    surface.SetDrawColor(col.r, col.g, col.b, col.a)
+                    surface.DrawRect(x, 4, 24, 24)
+                end
+
+                surface.SetDrawColor(255, 255, 255, 255)
+                if data.icon ~= "" then
+                    local mat = Material(data.icon, "smooth")
+                    surface.SetMaterial(mat)
+                    surface.DrawTexturedRect(x + 4, 8, 16, 16)
+                end
+
+                if tooltip ~= "" then
+                    tooltip = tooltip .. " / "
+                end
+                tooltip = tooltip .. (data.name or roleID)
             end
         end
+    end
+end
+
+--------------------------------------------------------------------
+-- CRÉATION SCOREBOARD
+--------------------------------------------------------------------
+
+local function CreateScoreboard()
+    if IsValid(Scoreboard) then Scoreboard:Remove() end
+
+    Scoreboard = vgui.Create("DFrame")
+    Scoreboard:SetSize(ScrW() * 0.6, ScrH() * 0.7)
+    Scoreboard:Center()
+    Scoreboard:SetTitle("Legendary Scoreboard")
+    Scoreboard:SetDraggable(false)
+    Scoreboard:ShowCloseButton(false)
+
+    local scroll = vgui.Create("DScrollPanel", Scoreboard)
+    scroll:Dock(FILL)
+
+    -- premier remplissage
+    RefreshScoreboardLines(scroll)
+
+    -- mise à jour toutes les 0.5 s quand le scoreboard est visible
+    timer.Create("LegendaryBadges_ScoreboardRefresh", 0.5, 0, function()
+        if not IsValid(Scoreboard) or not Scoreboard:IsVisible() then return end
+        RefreshScoreboardLines(scroll)
     end)
 end
 
@@ -230,10 +274,14 @@ hook.Add("ScoreboardShow", "LegendaryBadges_ScoreboardShow", function()
     Scoreboard:Show()
     Scoreboard:MakePopup()
     Scoreboard:SetKeyboardInputEnabled(false)
-    gui.EnableScreenClicker(true)
+
+    timer.Simple(0, function()
+        if IsValid(Scoreboard) then
+            gui.EnableScreenClicker(true)
+        end
+    end)
 
     LegendaryScoreboardOpen = true
-
     return true
 end)
 
@@ -244,7 +292,6 @@ hook.Add("ScoreboardHide", "LegendaryBadges_ScoreboardHide", function()
 
     gui.EnableScreenClicker(false)
     LegendaryScoreboardOpen = false
-
     return true
 end)
 
@@ -252,10 +299,9 @@ end)
 -- BLOQUER LES INPUTS QUAND LE TAB EST OUVERT
 --------------------------------------------------------------------
 
-hook.Add("CreateMove", "LegendaryBadges_BlockInputsWhenOpen", function(cmd)
+hook.Add("CreateMove", "LegendaryBadges_BlockInputsWhenOpen_Unique", function(cmd)
     if not LegendaryScoreboardOpen then return end
 
-    -- Bloquer tir primaire / secondaire + rechargement
     cmd:RemoveKey(IN_ATTACK)
     cmd:RemoveKey(IN_ATTACK2)
     cmd:RemoveKey(IN_RELOAD)
@@ -264,6 +310,28 @@ hook.Add("CreateMove", "LegendaryBadges_BlockInputsWhenOpen", function(cmd)
     cmd:SetForwardMove(0)
     cmd:SetSideMove(0)
     cmd:SetUpMove(0)
+end)
+
+--------------------------------------------------------------------
+-- COMMANDE DE TEST SANS TAB
+--------------------------------------------------------------------
+
+concommand.Add("legendary_scoreboard_test", function()
+    if not IsValid(Scoreboard) then
+        CreateScoreboard()
+    end
+
+    Scoreboard:Show()
+    Scoreboard:MakePopup()
+    Scoreboard:SetKeyboardInputEnabled(false)
+
+    timer.Simple(0, function()
+        if IsValid(Scoreboard) then
+            gui.EnableScreenClicker(true)
+        end
+    end)
+
+    LegendaryScoreboardOpen = true -- important pour bloquer les tirs
 end)
 
 end

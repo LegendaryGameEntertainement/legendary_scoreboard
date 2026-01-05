@@ -6,6 +6,7 @@ util.AddNetworkString("LegendaryBadges_AdminCreateBadge")
 util.AddNetworkString("LegendaryBadges_AdminCreateResult")
 util.AddNetworkString("LegendaryBadges_AdminDeleteBadge")
 util.AddNetworkString("LegendaryBadges_SendRoles")
+util.AddNetworkString("LegendaryBadges_AdminAction")
 
 LegendaryBadges = LegendaryBadges or {}
 
@@ -420,6 +421,49 @@ concommand.Add("legendary_delbadge", function(ply, cmd, args)
         "-> steamid:", steamid, "badgeID:", badgeID)
 
     LegendaryBadges_RemoveBadgeFromSteamID(steamid, badgeID)
+end)
+
+--------------------------------------------------------------------
+-- ACTIONS ADMIN (freeze / bring / goto / back / spectate)
+--------------------------------------------------------------------
+
+local LegendaryBadges_LastPos = LegendaryBadges_LastPos or {}
+
+hook.Add("PlayerDisconnected", "LegendaryBadges_ClearLastPos", function(ply)
+    LegendaryBadges_LastPos[ply] = nil
+end)
+
+net.Receive("LegendaryBadges_AdminAction", function(len, admin)
+    if not IsValid(admin) or not admin:IsAdmin() then return end
+
+    local action = net.ReadString()
+    local target = net.ReadEntity()
+    if not IsValid(target) or not target:IsPlayer() then return end
+
+    if action == "freeze" then
+        target:Lock()
+    elseif action == "unfreeze" then
+        target:UnLock()
+    elseif action == "bring" then
+        LegendaryBadges_LastPos[target] = target:GetPos()
+        local pos = admin:GetEyeTrace().HitPos + Vector(0, 0, 10)
+        target:SetPos(pos)
+    elseif action == "goto" then
+        LegendaryBadges_LastPos[admin] = admin:GetPos()
+        admin:SetPos(target:GetPos() + Vector(0, 0, 10))
+    elseif action == "back" then
+        local pos = LegendaryBadges_LastPos[target] or LegendaryBadges_LastPos[admin]
+        if pos then
+            if LegendaryBadges_LastPos[target] then
+                target:SetPos(pos)
+            else
+                admin:SetPos(pos)
+            end
+        end
+    elseif action == "spectate" then
+        admin:Spectate(OBS_MODE_CHASE)
+        admin:SpectateEntity(target)
+    end
 end)
 
 --------------------------------------------------------------------
