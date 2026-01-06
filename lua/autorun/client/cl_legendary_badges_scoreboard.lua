@@ -9,12 +9,8 @@ BadgeData = BadgeData or {
     equipped = { nil, nil, nil }
 }
 
--- roleBadges[steamid64] = badgeID
 local roleBadges = roleBadges or {}
 
---------------------------------------------------------------------
--- (Optionnel) désactiver d’autres scoreboards connus
---------------------------------------------------------------------
 hook.Remove("ScoreboardShow", "DarkRP_ScoreboardShow")
 hook.Remove("ScoreboardHide", "DarkRP_ScoreboardHide")
 hook.Remove("ScoreboardShow", "ULXScoreboardShow")
@@ -23,7 +19,6 @@ hook.Remove("ScoreboardHide", "ULXScoreboardHide")
 --------------------------------------------------------------------
 -- RÉCEPTION DES DONNÉES BADGES (3 slots joueurs)
 --------------------------------------------------------------------
-
 net.Receive("LegendaryBadges_SendDataV2", function()
     BadgeData.list = {}
     local count = net.ReadUInt(16)
@@ -68,7 +63,6 @@ end)
 --------------------------------------------------------------------
 -- RÉCEPTION DES BADGES DE RÔLE POUR TOUS LES JOUEURS
 --------------------------------------------------------------------
-
 net.Receive("LegendaryBadges_SendRoles", function()
     roleBadges = {}
 
@@ -90,20 +84,15 @@ net.Receive("LegendaryBadges_SendRoles", function()
 end)
 
 --------------------------------------------------------------------
--- CRÉATION LIGNES SCOREBOARD (une seule fois)
+-- CRÉATION LIGNES SCOREBOARD
 --------------------------------------------------------------------
-
 local function BuildScoreboardLines(scroll)
     if not IsValid(scroll) then return end
-
     scroll:Clear()
 
     for _, ply in ipairs(player.GetAll()) do
         if not IsValid(ply) then continue end
 
-        --------------------------------------------------------
-        -- Ligne joueur = DButton + sous-menu admin
-        --------------------------------------------------------
         local line = vgui.Create("DButton", scroll)
         line:Dock(TOP)
         line:DockMargin(0, 0, 0, 2)
@@ -120,12 +109,14 @@ local function BuildScoreboardLines(scroll)
             draw.SimpleText(ply:Ping() .. " ms", "DermaDefault", w - 10, h / 2, Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
         end
 
-        -- sous-menu docké en dessous, la ligne reste visible
-        local function BuildSubMenu(parent)
-            local sub = vgui.Create("DPanel", parent)
-            sub:Dock(BOTTOM)
-            sub:SetTall(34)
-            sub:DockMargin(40, 2, 40, 4)
+        ----------------------------------------------------------------
+        -- SOUS-MENU STAFF
+        ----------------------------------------------------------------
+        local function BuildSubMenu()
+            local sub = vgui.Create("DPanel", scroll)
+            sub:Dock(TOP)
+            sub:SetTall(38)
+            sub:DockMargin(40, 2, 40, 6)
 
             function sub:Paint(w, h)
                 surface.SetDrawColor(15, 15, 15, 230)
@@ -147,17 +138,13 @@ local function BuildScoreboardLines(scroll)
                 function b:Paint(w, h)
                     surface.SetDrawColor(30, 30, 30, 255)
                     surface.DrawRect(0, 0, w, h)
-
-                    surface.SetDrawColor(255, 255, 255, 255)
                     if iconMat then
+                        surface.SetDrawColor(255, 255, 255)
                         surface.SetMaterial(iconMat)
                         surface.DrawTexturedRect(6, 6, 16, 16)
                     end
-
                     draw.SimpleText(txt, "DermaDefault", 26, h / 2, Color(230, 230, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
                 end
-
-                return b
             end
 
             local matSteam   = Material("icon16/world.png")
@@ -227,8 +214,10 @@ local function BuildScoreboardLines(scroll)
             return sub
         end
 
+        ----------------------------------------------------------------
+        -- TOGGLE MENU
+        ----------------------------------------------------------------
         function line:DoClick()
-            -- toggle : si déjà ouvert -> fermer
             if IsValid(self.SubMenu) then
                 self.SubMenu:Remove()
                 self.SubMenu = nil
@@ -237,17 +226,21 @@ local function BuildScoreboardLines(scroll)
 
             -- fermer les autres sous-menus
             for _, other in ipairs(scroll:GetChildren()) do
-                if other ~= self and other.SubMenu and IsValid(other.SubMenu) then
+                if IsValid(other.SubMenu) then
                     other.SubMenu:Remove()
                     other.SubMenu = nil
                 end
             end
 
-            self.SubMenu = BuildSubMenu(self)
+            -- créer le sous-menu dans le scroll
+            self.SubMenu = BuildSubMenu()
+
+            -- placer juste sous la ligne
+            self.SubMenu:SetZPos(self:GetZPos() + 1)
         end
 
         --------------------------------------------------------
-        -- Panneau des badges (3 slots + rôle)
+        -- Panneau des badges (inchangé)
         --------------------------------------------------------
         local badgePanel = vgui.Create("DPanel", line)
         badgePanel:SetSize(4 * 24 + 4 * 4 + 8, 32)
@@ -337,7 +330,6 @@ end
 --------------------------------------------------------------------
 -- CRÉATION SCOREBOARD
 --------------------------------------------------------------------
-
 local function CreateScoreboard()
     if IsValid(Scoreboard) then Scoreboard:Remove() end
 
@@ -357,7 +349,6 @@ end
 --------------------------------------------------------------------
 -- SÉCURITÉ : TABLE ÉQUIPÉE POUR TOUS LES JOUEURS
 --------------------------------------------------------------------
-
 hook.Add("Think", "LegendaryBadges_SyncEquipped", function()
     for _, ply in ipairs(player.GetAll()) do
         if not IsValid(ply) then continue end
@@ -368,7 +359,6 @@ end)
 --------------------------------------------------------------------
 -- HOOKS SCOREBOARD
 --------------------------------------------------------------------
-
 hook.Add("ScoreboardShow", "LegendaryBadges_ScoreboardShow", function()
     if not IsValid(Scoreboard) then
         CreateScoreboard()
@@ -401,7 +391,6 @@ end)
 --------------------------------------------------------------------
 -- BLOQUER LES INPUTS QUAND LE TAB EST OUVERT
 --------------------------------------------------------------------
-
 hook.Add("CreateMove", "LegendaryBadges_BlockInputsWhenOpen_Unique", function(cmd)
     if not LegendaryScoreboardOpen then return end
 
@@ -413,28 +402,6 @@ hook.Add("CreateMove", "LegendaryBadges_BlockInputsWhenOpen_Unique", function(cm
     cmd:SetForwardMove(0)
     cmd:SetSideMove(0)
     cmd:SetUpMove(0)
-end)
-
---------------------------------------------------------------------
--- COMMANDE DE TEST SANS TAB
---------------------------------------------------------------------
-
-concommand.Add("legendary_scoreboard_test", function()
-    if not IsValid(Scoreboard) then
-        CreateScoreboard()
-    end
-
-    Scoreboard:Show()
-    Scoreboard:MakePopup()
-    Scoreboard:SetKeyboardInputEnabled(false)
-
-    timer.Simple(0, function()
-        if IsValid(Scoreboard) then
-            gui.EnableScreenClicker(true)
-        end
-    end)
-
-    LegendaryScoreboardOpen = true
 end)
 
 end
