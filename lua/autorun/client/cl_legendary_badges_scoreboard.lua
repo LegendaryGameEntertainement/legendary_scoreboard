@@ -120,6 +120,13 @@ local function BuildScoreboardLines(scroll)
         line:SetKeyboardInputEnabled(false)
         line.SubMenu = nil
 
+        -- Avatar Steam du joueur
+        local avatar = vgui.Create("AvatarImage", line)
+        avatar:SetSize(32, 32)
+        avatar:SetPos(4, 4)                -- un peu à gauche dans la card
+        avatar:SetPlayer(ply, 32)          -- 32 = taille de l’avatar
+
+
         ----------------------------------------------------------------
         -- Rendu de la ligne
         ----------------------------------------------------------------
@@ -128,7 +135,7 @@ local function BuildScoreboardLines(scroll)
             draw.RoundedBox(radius, 0, 0, w, h, Color(20, 20, 20, 230))
 
             -- pseudo
-            draw.SimpleText(ply:Nick(), "DermaDefault", 32, h / 2, color_white,
+            draw.SimpleText(ply:Nick(), "DermaDefault", 48, h / 2, color_white,
                 TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
             -- icône ami + ping
