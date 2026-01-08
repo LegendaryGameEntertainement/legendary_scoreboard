@@ -283,6 +283,19 @@ local function BroadcastBadgeList()
     end
 end
 
+
+
+
+local function CanManageBadges(ply)
+    if not IsValid(ply) then return false end
+    local group = string.lower(ply:GetUserGroup() or "")
+    if not LegendaryBadgesConfig or not LegendaryBadgesConfig.ManageBadgeRanks then
+        return ply:IsSuperAdmin() -- fallback de sécurité
+    end
+    return LegendaryBadgesConfig.ManageBadgeRanks[group] == true
+end
+
+
 --------------------------------------------------------------------
 -- GESTION DES BADGES PAR STEAMID (shop / commandes)
 --------------------------------------------------------------------
@@ -384,7 +397,7 @@ end
 -- Ajoute l'accès à un badge : legendary_addbadge
 concommand.Add("legendary_addbadge", function(ply, cmd, args)
     -- Si appelé par un joueur, limiter aux superadmins
-    if IsValid(ply) and not ply:IsSuperAdmin() then return end
+    if IsValid(ply) and not CanManageBadges(ply) then return end
 
     if #args < 2 then
         print("Usage: legendary_addbadge <steamid> <badgeID>")
@@ -405,7 +418,7 @@ end)
 
 -- Retire l'accès à un badge : legendary_delbadge
 concommand.Add("legendary_delbadge", function(ply, cmd, args)
-    if IsValid(ply) and not ply:IsSuperAdmin() then return end
+    if IsValid(ply) and not CanManageBadges(ply) then return end
 
     if #args < 2 then
         print("Usage: legendary_delbadge <steamid> <badgeID>")
@@ -428,7 +441,7 @@ hook.Add("PlayerSay", "LegendaryBadges_ChatCommands_Server", function(ply, text)
 
     -- !addbadge steamid badgeID
     if string.StartWith(text, "!addbadge ") then
-        if IsValid(ply) and not ply:IsSuperAdmin() then return "" end
+        if IsValid(ply) and not CanManageBadges(ply) then return "" end
 
         local args = string.Explode(" ", text)
         -- args[1] = "!addbadge", args[2] = steamid, args[3] = badgeID
@@ -446,7 +459,7 @@ hook.Add("PlayerSay", "LegendaryBadges_ChatCommands_Server", function(ply, text)
 
     -- !delbadge steamid badgeID
     if string.StartWith(text, "!delbadge ") then
-        if IsValid(ply) and not ply:IsSuperAdmin() then return "" end
+        if IsValid(ply) and not CanManageBadges(ply) then return "" end
 
         local args = string.Explode(" ", text)
         local steamid = args[2]
