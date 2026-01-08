@@ -343,3 +343,20 @@ end
 concommand.Add("legendary_badges_admin", OpenAdminBadgeMenu)
 
 end
+
+hook.Add("OnPlayerChat", "LegendaryBadges_ChatCommands_Client", function(ply, text)
+    if ply ~= LocalPlayer() then return end
+
+    text = string.Trim(string.lower(text))
+
+    if text == "!badges" then
+        RunConsoleCommand("legendary_badges")
+        return true -- bloque l'affichage du message dans le chat
+    end
+
+    if text == "!badgesadmin" then
+        RunConsoleCommand("legendary_badges_admin")
+        return true
+    end
+end)
+

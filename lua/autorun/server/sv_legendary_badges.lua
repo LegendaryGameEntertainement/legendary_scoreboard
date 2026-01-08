@@ -423,6 +423,46 @@ concommand.Add("legendary_delbadge", function(ply, cmd, args)
     LegendaryBadges_RemoveBadgeFromSteamID(steamid, badgeID)
 end)
 
+hook.Add("PlayerSay", "LegendaryBadges_ChatCommands_Server", function(ply, text)
+    text = string.Trim(string.lower(text))
+
+    -- !addbadge steamid badgeID
+    if string.StartWith(text, "!addbadge ") then
+        if IsValid(ply) and not ply:IsSuperAdmin() then return "" end
+
+        local args = string.Explode(" ", text)
+        -- args[1] = "!addbadge", args[2] = steamid, args[3] = badgeID
+        local steamid = args[2]
+        local badgeID = args[3]
+
+        if not steamid or not badgeID then
+            ply:ChatPrint("Usage: !addbadge steamid badgeID")
+            return ""
+        end
+
+        LegendaryBadgesAddBadgeToSteamID(steamid, badgeID)
+        return ""
+    end
+
+    -- !delbadge steamid badgeID
+    if string.StartWith(text, "!delbadge ") then
+        if IsValid(ply) and not ply:IsSuperAdmin() then return "" end
+
+        local args = string.Explode(" ", text)
+        local steamid = args[2]
+        local badgeID = args[3]
+
+        if not steamid or not badgeID then
+            ply:ChatPrint("Usage: !delbadge steamid badgeID")
+            return ""
+        end
+
+        LegendaryBadgesRemoveBadgeFromSteamID(steamid, badgeID)
+        return ""
+    end
+end)
+
+
 --------------------------------------------------------------------
 -- ACTIONS ADMIN (freeze / bring / goto / back / spectate)
 --------------------------------------------------------------------
