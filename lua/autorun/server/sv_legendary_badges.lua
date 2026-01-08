@@ -300,7 +300,11 @@ end
 -- GESTION DES BADGES PAR STEAMID (shop / commandes)
 --------------------------------------------------------------------
 
-local function LegendaryBadges_AddBadgeToSteamID(steamid, badgeID)
+--------------------------------------------------------------------
+-- GESTION DES BADGES PAR STEAMID (shop / commandes)
+--------------------------------------------------------------------
+
+function LegendaryBadges.AddBadgeToSteamID(steamid, badgeID)
     if not LegendaryBadges.List[badgeID] then
         print("[Badges] legendary_addbadge: badgeID inexistant:", badgeID)
         return
@@ -337,7 +341,7 @@ local function LegendaryBadges_AddBadgeToSteamID(steamid, badgeID)
     SavePlayersToFile()
 end
 
-local function LegendaryBadges_RemoveBadgeFromSteamID(steamid, badgeID)
+function LegendaryBadges.RemoveBadgeFromSteamID(steamid, badgeID)
     local data = LegendaryBadges.PlayerData[steamid]
 
     if not data or not data.owned then
@@ -413,7 +417,7 @@ concommand.Add("legendary_addbadge", function(ply, cmd, args)
         IsValid(ply) and (ply:Nick() .. " (" .. ply:SteamID() .. ")") or "console",
         "-> steamid:", steamid, "badgeID:", badgeID)
 
-    LegendaryBadges_AddBadgeToSteamID(steamid, badgeID)
+    LegendaryBadges.AddBadgeToSteamID(steamid, badgeID)
 end)
 
 -- Retire l'accès à un badge : legendary_delbadge
@@ -433,48 +437,8 @@ concommand.Add("legendary_delbadge", function(ply, cmd, args)
         IsValid(ply) and (ply:Nick() .. " (" .. ply:SteamID() .. ")") or "console",
         "-> steamid:", steamid, "badgeID:", badgeID)
 
-    LegendaryBadges_RemoveBadgeFromSteamID(steamid, badgeID)
+    LegendaryBadges.RemoveBadgeFromSteamID(steamid, badgeID)
 end)
-
-hook.Add("PlayerSay", "LegendaryBadges_ChatCommands_Server", function(ply, text)
-    text = string.Trim(string.lower(text))
-
-    -- !addbadge steamid badgeID
-    if string.StartWith(text, "!addbadge ") then
-        if IsValid(ply) and not CanManageBadges(ply) then return "" end
-
-        local args = string.Explode(" ", text)
-        -- args[1] = "!addbadge", args[2] = steamid, args[3] = badgeID
-        local steamid = args[2]
-        local badgeID = args[3]
-
-        if not steamid or not badgeID then
-            ply:ChatPrint("Usage: !addbadge steamid badgeID")
-            return ""
-        end
-
-        LegendaryBadgesAddBadgeToSteamID(steamid, badgeID)
-        return ""
-    end
-
-    -- !delbadge steamid badgeID
-    if string.StartWith(text, "!delbadge ") then
-        if IsValid(ply) and not CanManageBadges(ply) then return "" end
-
-        local args = string.Explode(" ", text)
-        local steamid = args[2]
-        local badgeID = args[3]
-
-        if not steamid or not badgeID then
-            ply:ChatPrint("Usage: !delbadge steamid badgeID")
-            return ""
-        end
-
-        LegendaryBadgesRemoveBadgeFromSteamID(steamid, badgeID)
-        return ""
-    end
-end)
-
 
 --------------------------------------------------------------------
 -- ACTIONS ADMIN (freeze / bring / goto / back / spectate)
