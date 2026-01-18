@@ -192,8 +192,7 @@ local function BuildScoreboardLines(scroll)
     header:SetTall(40)
 
     function header:Paint(w, h)
-        surface.SetDrawColor(30, 30, 30, 230)
-        surface.DrawRect(0, 0, w, h)
+        draw.RoundedBox(5, 0, 0, w, h, Color(30, 30, 30, 230))
 
         -- icône pseudo (gauche)
         local iconX = 8
@@ -267,13 +266,11 @@ local function BuildScoreboardLines(scroll)
             
             -- BARRE VERTICALE sur le bord DROIT
             if isLocalPlayer then
-                -- Barre blanche pour le joueur local
-                surface.SetDrawColor(255, 255, 255, 255)
-                surface.DrawRect(w - 4, 0, 4, h)
+                -- Barre blanche pour le joueur local (coins droits arrondis)
+                draw.RoundedBoxEx(radius, w - 4, 0, 4, h, Color(255, 255, 255, 255), true, false, true, false)
             elseif isFriend then
-                -- Barre bleue pour les amis
-                surface.SetDrawColor(66, 135, 245, 255)
-                surface.DrawRect(w - 4, 0, 4, h)
+                -- Barre bleue pour les amis (coins droits arrondis)
+                draw.RoundedBoxEx(radius, w - 4, 0, 4, h, Color(66, 135, 245, 255), false, true, false, true)  
             end
             
             -- pseudo
@@ -287,12 +284,13 @@ local function BuildScoreboardLines(scroll)
             draw.SimpleText(timeText, "Outdoor_PlayerInfo", timeX, timeY,
                 Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             
-            -- ping (sans icône ami, juste le ping)
+            -- ping
             local pingText = ply:Ping() .. " ms"
             local pingX = w - 200
             draw.SimpleText(pingText, "Outdoor_PlayerInfo", pingX, h / 2,
-                Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+                Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
+
 
         ----------------------------------------------------------------
         -- SOUS-MENU STAFF
@@ -304,8 +302,7 @@ local function BuildScoreboardLines(scroll)
             sub:DockMargin(40, 2, 40, 6)
 
             function sub:Paint(w, h)
-                surface.SetDrawColor(15, 15, 15, 230)
-                surface.DrawRect(0, 0, w, h)
+                draw.RoundedBox(5, 0, 0, w, h, Color(15, 15, 15, 230))
             end
 
             local function AddBtn(txt, iconMat, onClick)
@@ -320,8 +317,7 @@ local function BuildScoreboardLines(scroll)
                 end
 
                 function b:Paint(w, h)
-                    surface.SetDrawColor(30, 30, 30, 255)
-                    surface.DrawRect(0, 0, w, h)
+                    draw.RoundedBox(4, 0, 0, w, h, Color(30, 30, 30, 255))
 
                     if iconMat then
                         surface.SetDrawColor(255, 255, 255)
