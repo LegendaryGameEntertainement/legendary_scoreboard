@@ -130,6 +130,48 @@ net.Receive("LegendaryBadges_SendRoles", function()
     end
 end)
 
+
+--------------------------------------------------------------------
+-- POLICES PERSONNALISÉES
+--------------------------------------------------------------------
+
+surface.CreateFont("Outdoor_Header", {
+    font = "Actay",
+    extended = true,
+    size = 18,
+    weight = 400,
+    antialias = true,
+    shadow = false
+})
+
+surface.CreateFont("Outdoor_PlayerName", {
+    font = "Actay",
+    extended = true,
+    size = 17,
+    weight = 400,
+    antialias = true,
+    shadow = false
+})
+
+surface.CreateFont("Outdoor_PlayerInfo", {
+    font = "Actay",
+    extended = true,
+    size = 15,
+    weight = 400,
+    antialias = true,
+    shadow = false
+})
+
+surface.CreateFont("Outdoor_PlayerCount", {
+    font = "Actay",
+    extended = true,
+    size = 16,
+    weight = 400,
+    antialias = true,
+    shadow = false
+})
+
+
 --------------------------------------------------------------------
 -- CRÉATION LIGNES SCOREBOARD (style cards)
 --------------------------------------------------------------------
@@ -160,33 +202,29 @@ local function BuildScoreboardLines(scroll)
         surface.SetMaterial(matPseudo)
         surface.DrawTexturedRect(iconX, iconY, 16, 16)
 
-        draw.SimpleText("pseudo", "DermaDefault", 48, h / 2,
-            Color(230, 230, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-
-        -- badges
-        draw.SimpleText("badges", "DermaDefault", 220, h / 2,
+        draw.SimpleText("pseudo", "Outdoor_Header", 48, h / 2,
             Color(230, 230, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
         -- icône temps en jeu
-        local wTime = w - 140
+        local wTime = w - 150
         local timeIconX = wTime - 80
         local timeIconY = (h - 16) / 2
         surface.SetDrawColor(255, 255, 255, 255)
         surface.SetMaterial(matTime)
         surface.DrawTexturedRect(timeIconX, timeIconY, 16, 16)
 
-        draw.SimpleText("temps en jeu", "DermaDefault", wTime, h / 2,
+        draw.SimpleText("temps en jeu", "Outdoor_Header", wTime, h / 2,
             Color(230, 230, 230), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
         -- icône ping
-        local wPing = w - 40
-        local pingIconX = wPing - 60
+        local wPing = w - 60
+        local pingIconX = wPing - 30
         local pingIconY = (h - 16) / 2
         surface.SetDrawColor(255, 255, 255, 255)
         surface.SetMaterial(matPing)
         surface.DrawTexturedRect(pingIconX, pingIconY, 16, 16)
 
-        draw.SimpleText("ping", "DermaDefault", wPing, h / 2,
+        draw.SimpleText("ping", "Outdoor_Header", wPing, h / 2,
             Color(230, 230, 230), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
 
@@ -239,20 +277,20 @@ local function BuildScoreboardLines(scroll)
             end
             
             -- pseudo
-            draw.SimpleText(ply:Nick(), "DermaDefault", 48, h / 2, color_white,
+            draw.SimpleText(ply:Nick(), "Outdoor_PlayerName", 48, h / 2, color_white,
                 TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
             
             -- temps en jeu
             local timeText = FormatSessionTime(SessionTimes[ply])
             local timeX = w - 140
             local timeY = h / 2
-            draw.SimpleText(timeText, "DermaDefault", timeX, timeY,
+            draw.SimpleText(timeText, "Outdoor_PlayerInfo", timeX, timeY,
                 Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             
             -- ping (sans icône ami, juste le ping)
             local pingText = ply:Ping() .. " ms"
             local pingX = w - 50
-            draw.SimpleText(pingText, "DermaDefault", pingX, h / 2,
+            draw.SimpleText(pingText, "Outdoor_PlayerInfo", pingX, h / 2,
                 Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
         end
 
@@ -291,7 +329,7 @@ local function BuildScoreboardLines(scroll)
                         surface.DrawTexturedRect(6, 6, 16, 16)
                     end
 
-                    draw.SimpleText(txt, "DermaDefault", 26, h / 2,
+                    draw.SimpleText(txt, "Outdoor_PlayerInfo", 26, h / 2,
                         Color(230, 230, 230),
                         TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
                 end
@@ -513,7 +551,7 @@ local function CreateScoreboard()
 
     function playersBar:Paint(w, h)
         local txt = string.format("%d joueurs sur %d", #player.GetAll(), 120)
-        draw.SimpleText(txt, "DermaDefault", 0, 0, color_white,
+        draw.SimpleText(txt, "Outdoor_PlayerCount", 0, 0, color_white,
             TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
     end
 

@@ -17,6 +17,10 @@ local DATA_DIR         = "legendary_badges"
 local DATA_FILE        = DATA_DIR .. "/badges.json"
 local PLAYER_DATA_FILE = DATA_DIR .. "/players.json"
 
+
+
+resource.AddFile("resource/fonts/Actay-Regular.otf")
+
 --------------------------------------------------------------------
 -- SAUVEGARDE / CHARGEMENT JSON BADGES
 --------------------------------------------------------------------
