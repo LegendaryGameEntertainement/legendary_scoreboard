@@ -202,11 +202,11 @@ local function BuildScoreboardLines(scroll)
         surface.SetMaterial(matPseudo)
         surface.DrawTexturedRect(iconX, iconY, 16, 16)
 
-        draw.SimpleText("pseudo", "Outdoor_Header", 48, h / 2,
+        draw.SimpleText("pseudonyme", "Outdoor_Header", 48, h / 2,
             Color(230, 230, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
         -- icône temps en jeu
-        local wTime = w - 150
+        local wTime = w - 400
         local timeIconX = wTime - 80
         local timeIconY = (h - 16) / 2
         surface.SetDrawColor(255, 255, 255, 255)
@@ -217,7 +217,7 @@ local function BuildScoreboardLines(scroll)
             Color(230, 230, 230), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
         -- icône ping
-        local wPing = w - 60
+        local wPing = w - 200
         local pingIconX = wPing - 30
         local pingIconY = (h - 16) / 2
         surface.SetDrawColor(255, 255, 255, 255)
@@ -282,14 +282,14 @@ local function BuildScoreboardLines(scroll)
             
             -- temps en jeu
             local timeText = FormatSessionTime(SessionTimes[ply])
-            local timeX = w - 140
+            local timeX = w - 400
             local timeY = h / 2
             draw.SimpleText(timeText, "Outdoor_PlayerInfo", timeX, timeY,
                 Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             
             -- ping (sans icône ami, juste le ping)
             local pingText = ply:Ping() .. " ms"
-            local pingX = w - 50
+            local pingX = w - 200
             draw.SimpleText(pingText, "Outdoor_PlayerInfo", pingX, h / 2,
                 Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
         end
