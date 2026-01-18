@@ -295,11 +295,6 @@ local function CanManageBadges(ply)
     return LegendaryBadgesConfig.ManageBadgeRanks[group] == true
 end
 
-
---------------------------------------------------------------------
--- GESTION DES BADGES PAR STEAMID (shop / commandes)
---------------------------------------------------------------------
-
 --------------------------------------------------------------------
 -- GESTION DES BADGES PAR STEAMID (shop / commandes)
 --------------------------------------------------------------------
@@ -482,6 +477,36 @@ net.Receive("LegendaryBadges_AdminAction", function(len, admin)
         admin:SpectateEntity(target)
     end
 end)
+
+--------------------------------------------------------------------
+-- Temps de jeu du joueur
+--------------------------------------------------------------------
+
+local sessionJoinTime = sessionJoinTime or {}
+
+hook.Add("PlayerInitialSpawn", "Outdoor_TrackSessionTime", function(ply)
+    sessionJoinTime[ply] = CurTime()
+end)
+
+hook.Add("PlayerDisconnected", "Outdoor_ClearSessionTime", function(ply)
+    sessionJoinTime[ply] = nil
+end)
+
+util.AddNetworkString("Outdoor_SendSessionTime")
+
+-- envoi régulier au client
+timer.Create("Outdoor_BroadcastSessionTime", 5, 0, function()
+    for _, ply in ipairs(player.GetAll()) do
+        if IsValid(ply) and sessionJoinTime[ply] then
+            net.Start("Outdoor_SendSessionTime")
+            net.WriteEntity(ply)
+            net.WriteUInt(math.floor(CurTime() - sessionJoinTime[ply]), 32) -- secondes
+            net.Broadcast()
+        end
+    end
+end)
+
+
 
 --------------------------------------------------------------------
 -- HOOKS

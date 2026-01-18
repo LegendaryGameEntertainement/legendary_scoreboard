@@ -16,15 +16,38 @@ hook.Remove("ScoreboardHide", "DarkRP_ScoreboardHide")
 hook.Remove("ScoreboardShow", "ULXScoreboardShow")
 hook.Remove("ScoreboardHide", "ULXScoreboardHide")
 
--- icône custom pour le socreboard
-local matFriend = Material("icon16/heart.png", "smooth")
+-- icône custom pour le scoreboard
 local matServerLogo = Material("materials/logo/logo.png", "smooth")
+
 print("[Scoreboard] matServerLogo IsError =", matServerLogo:IsError())
+
+--------------------------------------------------------------------
+-- TEMPS DE SESSION (reçu du serveur)
+--------------------------------------------------------------------
+
+local SessionTimes = SessionTimes or {}
+
+net.Receive("Outdoor_SendSessionTime", function()
+    local ply  = net.ReadEntity()
+    local secs = net.ReadUInt(32)
+    if IsValid(ply) then
+        SessionTimes[ply] = secs
+    end
+end)
+
+local function FormatSessionTime(secs)
+    secs = secs or 0
+    local h = math.floor(secs / 3600)
+    local m = math.floor((secs % 3600) / 60)
+    return string.format("%dh%02d", h, m)
+end
 
 --------------------------------------------------------------------
 -- BLUR UTILS
 --------------------------------------------------------------------
+
 local blurMat = Material("pp/blurscreen")
+
 local function DrawBlur(panel, layers, density, alpha)
     local x, y = panel:LocalToScreen(0, 0)
     local scrW, scrH = ScrW(), ScrH()
@@ -43,14 +66,17 @@ end
 --------------------------------------------------------------------
 -- RÉCEPTION DES DONNÉES BADGES (3 slots joueurs)
 --------------------------------------------------------------------
+
 net.Receive("LegendaryBadges_SendDataV2", function()
     BadgeData.list = {}
+
     local count = net.ReadUInt(16)
     for i = 1, count do
         local id    = net.ReadString()
         local name  = net.ReadString()
         local color = net.ReadColor()
         local icon  = net.ReadString()
+
         BadgeData.list[id] = {
             id    = id,
             name  = name,
@@ -84,10 +110,13 @@ end)
 --------------------------------------------------------------------
 -- RÉCEPTION DES BADGES DE RÔLE POUR TOUS LES JOUEURS
 --------------------------------------------------------------------
+
 net.Receive("LegendaryBadges_SendRoles", function()
     roleBadges = {}
+
     local count = net.ReadUInt(8)
     print("[Badges][CL] Receive roles, count =", count)
+
     for i = 1, count do
         local sid = net.ReadString()
         local has = net.ReadBool()
@@ -104,9 +133,62 @@ end)
 --------------------------------------------------------------------
 -- CRÉATION LIGNES SCOREBOARD (style cards)
 --------------------------------------------------------------------
+
 local function BuildScoreboardLines(scroll)
     if not IsValid(scroll) then return end
+
     scroll:Clear()
+
+    local matPseudo = Material("logo/player_icon.png", "smooth")
+    local matTime = Material("logo/time_icon.png", "smooth")
+    local matPing = Material("logo/ping_icon.png", "smooth")
+
+    -- HEADER dans le scroll (première "ligne" fixe visuellement)
+    local header = vgui.Create("DPanel", scroll)
+    header:Dock(TOP)
+    header:DockMargin(0, 0, 0, 6)
+    header:SetTall(40)
+
+    function header:Paint(w, h)
+        surface.SetDrawColor(30, 30, 30, 230)
+        surface.DrawRect(0, 0, w, h)
+
+        -- icône pseudo (gauche)
+        local iconX = 8
+        local iconY = (h - 16) / 2
+        surface.SetDrawColor(255, 255, 255, 255)
+        surface.SetMaterial(matPseudo)
+        surface.DrawTexturedRect(iconX, iconY, 16, 16)
+
+        draw.SimpleText("pseudo", "DermaDefault", 48, h / 2,
+            Color(230, 230, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+        -- badges
+        draw.SimpleText("badges", "DermaDefault", 220, h / 2,
+            Color(230, 230, 230), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+        -- icône temps en jeu
+        local wTime = w - 140
+        local timeIconX = wTime - 80
+        local timeIconY = (h - 16) / 2
+        surface.SetDrawColor(255, 255, 255, 255)
+        surface.SetMaterial(matTime)
+        surface.DrawTexturedRect(timeIconX, timeIconY, 16, 16)
+
+        draw.SimpleText("temps en jeu", "DermaDefault", wTime, h / 2,
+            Color(230, 230, 230), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+        -- icône ping
+        local wPing = w - 40
+        local pingIconX = wPing - 60
+        local pingIconY = (h - 16) / 2
+        surface.SetDrawColor(255, 255, 255, 255)
+        surface.SetMaterial(matPing)
+        surface.DrawTexturedRect(pingIconX, pingIconY, 16, 16)
+
+        draw.SimpleText("ping", "DermaDefault", wPing, h / 2,
+            Color(230, 230, 230), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    end
 
     for _, ply in ipairs(player.GetAll()) do
         if not IsValid(ply) then continue end
@@ -123,55 +205,55 @@ local function BuildScoreboardLines(scroll)
         -- Avatar Steam du joueur
         local avatar = vgui.Create("AvatarImage", line)
         avatar:SetSize(32, 32)
-        avatar:SetPos(4, 4)                -- un peu à gauche dans la card
-        avatar:SetPlayer(ply, 32)          -- 32 = taille de l’avatar
-
+        avatar:SetPos(4, 4)
+        avatar:SetPlayer(ply, 32)
 
         ----------------------------------------------------------------
-        -- Rendu de la ligne
+        -- Rendu de la ligne (UNE SEULE FOIS)
         ----------------------------------------------------------------
         function line:Paint(w, h)
             local radius = 5
-            draw.RoundedBox(radius, 0, 0, w, h, Color(20, 20, 20, 230))
-
-            -- pseudo
-            draw.SimpleText(ply:Nick(), "DermaDefault", 48, h / 2, color_white,
-                TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-
-            -- icône ami + ping
+            
+            -- Détection joueur local et amis
             local lp = LocalPlayer()
+            local isLocalPlayer = (ply == lp)
             local isFriend = false
-            if IsValid(lp) and IsValid(ply) then
+            
+            if IsValid(lp) and IsValid(ply) and not isLocalPlayer then
                 local status = lp:GetFriendStatus(ply)
                 isFriend = (status == "friend")
             end
-
-            local pingText = ply:Ping() .. " ms"
-            surface.SetFont("DermaDefault")
-            local tw, th = surface.GetTextSize(pingText)
-
-            local baseX  = w - 40
-            local pingY  = h / 2
-            local iconSz = 16
-
-            if isFriend then
-                local iconX = baseX - tw - iconSz - 8
-                local iconY = pingY - iconSz / 2
-
-                surface.SetDrawColor(255, 255, 255)
-                surface.SetMaterial(matFriend)
-                surface.DrawTexturedRect(iconX, iconY, iconSz, iconSz)
-
-                draw.SimpleText(pingText, "DermaDefault",
-                    iconX + iconSz + 4, pingY,
-                    Color(200, 200, 200),
-                    TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-            else
-                draw.SimpleText(pingText, "DermaDefault",
-                    baseX, pingY,
-                    Color(200, 200, 200),
-                    TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+            
+            -- Fond de la ligne
+            draw.RoundedBox(radius, 0, 0, w, h, Color(20, 20, 20, 230))
+            
+            -- BARRE VERTICALE sur le bord DROIT
+            if isLocalPlayer then
+                -- Barre blanche pour le joueur local
+                surface.SetDrawColor(255, 255, 255, 255)
+                surface.DrawRect(w - 4, 0, 4, h)
+            elseif isFriend then
+                -- Barre bleue pour les amis
+                surface.SetDrawColor(66, 135, 245, 255)
+                surface.DrawRect(w - 4, 0, 4, h)
             end
+            
+            -- pseudo
+            draw.SimpleText(ply:Nick(), "DermaDefault", 48, h / 2, color_white,
+                TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+            
+            -- temps en jeu
+            local timeText = FormatSessionTime(SessionTimes[ply])
+            local timeX = w - 140
+            local timeY = h / 2
+            draw.SimpleText(timeText, "DermaDefault", timeX, timeY,
+                Color(200, 200, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            
+            -- ping (sans icône ami, juste le ping)
+            local pingText = ply:Ping() .. " ms"
+            local pingX = w - 50
+            draw.SimpleText(pingText, "DermaDefault", pingX, h / 2,
+                Color(200, 200, 200), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
         end
 
         ----------------------------------------------------------------
@@ -202,24 +284,26 @@ local function BuildScoreboardLines(scroll)
                 function b:Paint(w, h)
                     surface.SetDrawColor(30, 30, 30, 255)
                     surface.DrawRect(0, 0, w, h)
+
                     if iconMat then
                         surface.SetDrawColor(255, 255, 255)
                         surface.SetMaterial(iconMat)
                         surface.DrawTexturedRect(6, 6, 16, 16)
                     end
+
                     draw.SimpleText(txt, "DermaDefault", 26, h / 2,
                         Color(230, 230, 230),
                         TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
                 end
             end
 
-            local matSteam  = Material("icon16/world.png")
-            local matID     = Material("icon16/key.png")
-            local matFreeze = Material("icon16/lock.png")
-            local matGoto   = Material("icon16/arrow_right.png")
-            local matBring  = Material("icon16/arrow_left.png")
-            local matBack   = Material("icon16/arrow_undo.png")
-            local matSpec   = Material("icon16/eye.png")
+            local matSteam  = Material("logo/steam_icon.png", "smooth")
+            local matID     = Material("logo/steam_icon.png", "smooth")
+            local matFreeze = Material("logo/freeze_icon.png", "smooth")
+            local matGoto   = Material("logo/goto_icon.png", "smooth")
+            local matBring  = Material("logo/bring_icon.png", "smooth")
+            local matBack   = Material("logo/goto_icon.png", "smooth")
+            local matSpec   = Material("logo/spectate_icon.png", "smooth")
 
             AddBtn("profil steam", matSteam, function()
                 local sid64 = ply:SteamID64()
@@ -302,7 +386,7 @@ local function BuildScoreboardLines(scroll)
         end
 
         --------------------------------------------------------
-        -- Panneau des badges 
+        -- Panneau des badges
         --------------------------------------------------------
         local badgePanel = vgui.Create("DPanel", line)
         badgePanel:SetSize(4 * 24 + 4 * 4 + 8, 32)
@@ -335,21 +419,25 @@ local function BuildScoreboardLines(scroll)
                 if id and BadgeData.list[id] then
                     local data = BadgeData.list[id]
                     local col  = data.color or color_white
+
                     if col.a > 0 then
                         surface.SetDrawColor(col.r, col.g, col.b, col.a)
                         surface.DrawRect(x, 4, 24, 24)
                     end
+
                     surface.SetDrawColor(255, 255, 255, 255)
                     if data.icon ~= "" then
                         local mat = Material(data.icon, "smooth")
                         surface.SetMaterial(mat)
                         surface.DrawTexturedRect(x + 4, 8, 16, 16)
                     end
+
                     if tooltip ~= "" then
                         tooltip = tooltip .. " / "
                     end
                     tooltip = tooltip .. (data.name or id)
                 end
+
                 x = x + 28
             end
 
@@ -358,16 +446,19 @@ local function BuildScoreboardLines(scroll)
                 x = x + 4
                 local data = BadgeData.list[roleID]
                 local col  = data.color or color_white
+
                 if col.a > 0 then
                     surface.SetDrawColor(col.r, col.g, col.b, col.a)
                     surface.DrawRect(x, 4, 24, 24)
                 end
+
                 surface.SetDrawColor(255, 255, 255, 255)
                 if data.icon ~= "" then
                     local mat = Material(data.icon, "smooth")
                     surface.SetMaterial(mat)
                     surface.DrawTexturedRect(x + 4, 8, 16, 16)
                 end
+
                 if tooltip ~= "" then
                     tooltip = tooltip .. " / "
                 end
@@ -377,10 +468,10 @@ local function BuildScoreboardLines(scroll)
     end
 end
 
-
 --------------------------------------------------------------------
 -- CRÉATION SCOREBOARD (style screenshot)
 --------------------------------------------------------------------
+
 local function CreateScoreboard()
     if IsValid(Scoreboard) then Scoreboard:Remove() end
 
@@ -405,17 +496,15 @@ local function CreateScoreboard()
 
     function blurPanel:Paint(w, h)
         DrawBlur(self, 4, 6, 255)
-        surface.SetDrawColor(0, 0, 0, 80) -- semi-transparent
+        surface.SetDrawColor(0, 0, 0, 80)
         surface.DrawRect(0, 0, w, h)
     end
 
     -- Logo global du serveur
     local serverLogo = vgui.Create("DImage", blurPanel)
-    serverLogo:SetSize(328, 124)                -- arrondi de 123.55
-    serverLogo:SetImage("logo/logo.png")        -- adapte le chemin ("logo/logo.png" si materials/logo/logo.vtf)
-    -- position relative au blurPanel (tu m'as donné des coords écran)
-    serverLogo:SetPos(784 - 6, 109 - 62)        -- on enlève l'offset du blurPanel (6, 62)
-
+    serverLogo:SetSize(328, 124)
+    serverLogo:SetImage("logo/logo.png")
+    serverLogo:SetPos(784 - 6, 109 - 62)
 
     -- barre "X joueurs sur Y"
     local playersBar = vgui.Create("DPanel", blurPanel)
@@ -439,6 +528,7 @@ end
 --------------------------------------------------------------------
 -- SÉCURITÉ : TABLE ÉQUIPÉE POUR TOUS LES JOUEURS
 --------------------------------------------------------------------
+
 hook.Add("Think", "LegendaryBadges_SyncEquipped", function()
     for _, ply in ipairs(player.GetAll()) do
         if not IsValid(ply) then continue end
@@ -450,6 +540,7 @@ end)
 --------------------------------------------------------------------
 -- HOOKS SCOREBOARD
 --------------------------------------------------------------------
+
 hook.Add("ScoreboardShow", "LegendaryBadges_ScoreboardShow", function()
     if not IsValid(Scoreboard) then
         CreateScoreboard()
@@ -473,6 +564,7 @@ hook.Add("ScoreboardHide", "LegendaryBadges_ScoreboardHide", function()
     if IsValid(Scoreboard) then
         Scoreboard:Hide()
     end
+
     gui.EnableScreenClicker(false)
     LegendaryScoreboardOpen = false
     return true
@@ -481,11 +573,14 @@ end)
 --------------------------------------------------------------------
 -- BLOQUER LES INPUTS QUAND LE TAB EST OUVERT
 --------------------------------------------------------------------
+
 hook.Add("CreateMove", "LegendaryBadges_BlockInputsWhenOpen_Unique", function(cmd)
     if not LegendaryScoreboardOpen then return end
+
     cmd:RemoveKey(IN_ATTACK)
     cmd:RemoveKey(IN_ATTACK2)
     cmd:RemoveKey(IN_RELOAD)
+
     cmd:ClearMovement()
     cmd:SetForwardMove(0)
     cmd:SetSideMove(0)
